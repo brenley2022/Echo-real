@@ -357,7 +357,7 @@ img{
                         padding: 0;
                           }
 
-                            .sky {
+                            .skyBg {
                                 position: fixed;
                                     inset: 0;
                                         z-index: 1;
@@ -373,4 +373,3 @@ img{
                                                                         backdrop-filter: blur(16px);
                                                                           }
                                                                           }
-}

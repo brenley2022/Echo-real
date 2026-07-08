@@ -229,7 +229,8 @@ setBusy(false);
     </div>
   </div>;
 
-  return <div className="sky">
+ return <div className="app">
+  <div className="skyBg">
     <div className="moon"></div>
     <div className="cloud c1"></div>
     <div className="cloud c2"></div>
@@ -254,7 +255,7 @@ setBusy(false);
     ></button>
   );
 })}
-
+</div>
     <main className="panel">
       <h1>🌌 Echo</h1>
       <p className="sub">Talk naturally. Echo turns the mess into a memory.</p>
