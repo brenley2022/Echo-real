@@ -207,22 +207,26 @@ body:{
 };
 
     const next=[memory,...memories];
-    saveLocal(next);
-    const { error: insertError } = await supabase
-      .from("entries")
-        .insert({
-            title: memory.title,
-                raw_text: memory.raw,
-                    journal_text: memory.entry,
-                        mood: memory.mood,
-                            topic: memory.topic,
-                                author: memory.author,
-                                    location: memory.location,
-                                        photos: memory.photos
-                                          });
+   const { data, error: insertError } = await supabase
+     .from("entries")
+       .insert({
+           title: memory.title,
+               raw_text: memory.raw,
+                   journal_text: memory.entry,
+                       mood: memory.mood,
+                           topic: memory.topic,
+                               author: memory.author,
+                                   location: memory.location,
+                                       photos: memory.photos
+                                         })
+                                           .select();
 
-                                          if (insertError) {
-                                            console.error("Supabase insert failed:", insertError);
+                                           console.log("Supabase result:", data);
+
+                                           if (insertError) {
+                                             alert(JSON.stringify(insertError));
+                                               console.error(insertError);
+                                               } 
                                             }
    setSelected(memory);
 preloadSpeech(memory.entry, memory.id);
