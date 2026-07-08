@@ -208,6 +208,22 @@ body:{
 
     const next=[memory,...memories];
     saveLocal(next);
+    const { error: insertError } = await supabase
+      .from("entries")
+        .insert({
+            title: memory.title,
+                raw_text: memory.raw,
+                    journal_text: memory.entry,
+                        mood: memory.mood,
+                            topic: memory.topic,
+                                author: memory.author,
+                                    location: memory.location,
+                                        photos: memory.photos
+                                          });
+
+                                          if (insertError) {
+                                            console.error("Supabase insert failed:", insertError);
+                                            }
    setSelected(memory);
 preloadSpeech(memory.entry, memory.id);
 setText('');
