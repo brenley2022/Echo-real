@@ -76,28 +76,45 @@ function App(){
   const recRef=useRef(null);
   const keepListening=useRef(false);
 
-  useEffect(()=>{
-    const saved=JSON.parse(localStorage.getItem(KEY)||'[]');
-    setMemories(saved);
-    speechSynthesis.getVoices();
-  },[]);
-
-  function saveLocal(items){
-    setMemories(items);
-    localStorage.setItem(KEY,JSON.stringify(items));
-    <input
-  value={location}
-  onChange={(e)=>setLocation(e.target.value)}
-  placeholder="Location"
-  style={{
-    width:'100%',
-    marginTop:'10px',
-    padding:'12px',
-    borderRadius:'12px',
-    fontSize:'16px'
-  }}
-/>
+  useEffect(() => {
+  async function loadEntries() {
+    const { data, error } = await supabase
+      .from("entries")
+      .select("*")
+      .order("created_at", { ascending: false });
+ 
+    if (error) {
+      console.error(error);
+      const saved = JSON.parse(localStorage.getItem(KEY) || "[]");
+      setMemories(saved);
+      return;
+    }
+ 
+    const mapped = data.map((e) => ({
+      id: e.id,
+      title: e.title,
+      entry: e.journal_text,
+      raw: e.raw_text,
+      mood: e.mood,
+      topic: e.topic,
+      author: e.author,
+      location: e.location,
+      photos: e.photos || [],
+      date: e.created_at,
+      favourite: false,
+    }));
+ 
+    setMemories(mapped);
   }
+ 
+  loadEntries();
+  speechSynthesis.getVoices();
+}, []);
+ 
+function saveLocal(items) {
+  setMemories(items);
+  localStorage.setItem(KEY, JSON.stringify(items));
+}
 
   function startTalk(){
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -172,19 +189,22 @@ body:{
     }
 
     const spot = STAR_SPOTS[memories.length % STAR_SPOTS.length];
-    const memory={
-      id:crypto.randomUUID(),
-      title:ai?.title||text.trim().split(' ').slice(0,7).join(' '),
-      entry:ai?.journal_text||text,
-      raw:text,photos:photos,
-      mood:ai?.mood||'Reflective',
-      topic:ai?.topic||'Memory',
-      dateISO:new Date().toISOString(),
-      date:new Date().toLocaleString('en-AU'),
-      x: 8 + Math.random() * 82,
-      y: 100 + Math.random() * 200,
-      favourite:false
-    };
+   const memory = {
+  id: crypto.randomUUID(),
+  title: ai?.title || text.trim().split(' ').slice(0,7).join(' '),
+  entry: ai?.journal_text || text,
+  raw: text,
+  photos: photos,
+  mood: ai?.mood || 'Reflective',
+  topic: ai?.topic || 'Memory',
+  author: author,
+  location: location,
+  dateISO: new Date().toISOString(),
+  date: new Date().toLocaleString('en-AU'),
+  x: 8 + Math.random() * 82,
+  y: 100 + Math.random() * 200,
+  favourite: false
+};
 
     const next=[memory,...memories];
     saveLocal(next);
