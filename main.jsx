@@ -1,38 +1,35 @@
 import { speak, preloadSpeech } from "./src/openaiTTS.js";
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import { supabase } from './supabase.js';
-import './styles.css';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { supabase } from "./supabase.js";
+import "./styles.css";
 
-const KEY = 'echo_memories_v2';
-
-function pickVoice() {
-  const voices = speechSynthesis.getVoices();
-  return voices.find(v => /karen|samantha|victoria|zira|female|australia|english/i.test(v.name)) || voices[0];
-}
-
+const KEY = "echo_memories_v2";
 
 const STAR_SPOTS = [
   { x: 60, y: 18 },
   { x: 68, y: 16 },
   { x: 76, y: 20 },
   { x: 84, y: 15 },
-  { x: 90, y: 22 }
+  { x: 90, y: 22 },
 ];
 
-function App(){     
-}
+function App() {
   const [locked, setLocked] = useState(true);
-  const [pass, setPass] = useState('');
-  const [text, setText] = useState('');
+  const [pass, setPass] = useState("");
+  const [text, setText] = useState("");
   const [photos, setPhotos] = useState([]);
-  const [author, setAuthor] = useState('Brendan');
+  const [author, setAuthor] = useState("Brendan");
   const [memories, setMemories] = useState([]);
   const [selected, setSelected] = useState(null);
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [query, setQuery] = useState('');
-  const [location, setLocation] = useState('Da Nang');
+  const [query, setQuery] = useState("");
+  const [location, setLocation] = useState("Da Nang");
+
+  const recRef = useRef(null);
+  const keepListening = useRef(false);
+
   useEffect(() => {
     if (!navigator.geolocation) return;
 
@@ -42,28 +39,25 @@ function App(){
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}`
           );
-
           const data = await res.json();
 
           const suburb =
-            data.address.city ||
-            data.address.town ||
-            data.address.village ||
+            data.address?.city ||
+            data.address?.town ||
+            data.address?.village ||
             "";
 
-          const state = data.address.state || "";
-          const country = data.address.country || "";
+          const state = data.address?.state || "";
+          const country = data.address?.country || "";
 
           setLocation([suburb, state, country].filter(Boolean).join(", "));
         } catch (err) {
-          console.log(err);
+          console.error(err);
         }
       },
-      () => { }
+      () => {}
     );
   }, []);
-  const recRef = useRef(null);
-  const keepListening = useRef(false);
 
   useEffect(() => {
     async function loadEntries() {
@@ -107,24 +101,38 @@ function App(){
 
   function startTalk() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert('Voice dictation is not supported in this browser. Try Chrome.'); return; }
+
+    if (!SR) {
+      alert("Voice dictation is not supported in this browser. Try Chrome.");
+      return;
+    }
+
     keepListening.current = true;
+
     const rec = new SR();
-    rec.lang = 'en-AU';
+    rec.lang = "en-AU";
     rec.continuous = false;
     rec.interimResults = false;
+
     rec.onstart = () => setListening(true);
-    rec.onresult = e => {
+
+    rec.onresult = (e) => {
       const said = e.results[0][0].transcript;
-      setText(t => (t + ' ' + said).trim());
+      setText((t) => `${t} ${said}`.trim());
     };
+
     rec.onend = () => {
       if (keepListening.current) {
-        setTimeout(() => { try { rec.start() } catch { } }, 250);
+        setTimeout(() => {
+          try {
+            rec.start();
+          } catch {}
+        }, 250);
       } else {
         setListening(false);
       }
     };
+
     recRef.current = rec;
     rec.start();
   }
@@ -138,65 +146,74 @@ function App(){
   function addPhotos(e) {
     const files = Array.from(e.target.files || []);
 
-    const readers = files.map(file => new Promise(resolve => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.readAsDataURL(file);
-    }));
+    const readers = files.map(
+      (file) =>
+        new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.readAsDataURL(file);
+        })
+    );
 
-    Promise.all(readers).then(newPhotos => {
-      setPhotos(p => [...p, ...newPhotos]);
+    Promise.all(readers).then((newPhotos) => {
+      setPhotos((p) => [...p, ...newPhotos]);
     });
   }
 
-
   async function createMemory() {
-    if (!text.trim()) { alert('Write or say something first.'); return; }
+    if (!text.trim()) {
+      alert("Write or say something first.");
+      return;
+    }
+
     setBusy(true);
 
     let ai = null;
+
     try {
-      const res = await supabase.functions.invoke('generate-entry', {
+      const res = await supabase.functions.invoke("generate-entry", {
         body: {
           rawText: text,
-          author: author,
-          today: new Date().toLocaleDateString('en-AU', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+          author,
+          today: new Date().toLocaleDateString("en-AU", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
           }),
-          location: location
-        }
+          location,
+        },
       });
+
       if (res.error) throw res.error;
       if (res.data?.error) throw new Error(res.data.error);
+
       ai = res.data;
     } catch (err) {
       console.error(err);
-      alert('AI failed for now, so Echo saved a basic memory.');
+      alert("AI failed for now, so Echo saved a basic memory.");
     }
 
-    const spot = STAR_SPOTS[memories.length % STAR_SPOTS.length];
     const memory = {
       id: crypto.randomUUID(),
-      title: ai?.title || text.trim().split(' ').slice(0, 7).join(' '),
+      title: ai?.title || text.trim().split(" ").slice(0, 7).join(" "),
       entry: ai?.journal_text || text,
       raw: text,
-      photos: photos,
-      mood: ai?.mood || 'Reflective',
-      topic: ai?.topic || 'Memory',
-      author: author,
-      location: location,
+      photos,
+      mood: ai?.mood || "Reflective",
+      topic: ai?.topic || "Memory",
+      author,
+      location,
       dateISO: new Date().toISOString(),
-      date: new Date().toLocaleString('en-AU'),
+      date: new Date().toLocaleString("en-AU"),
       x: 8 + Math.random() * 82,
       y: 100 + Math.random() * 200,
-      favourite: false
+      favourite: false,
     };
 
     const next = [memory, ...memories];
-    alert("Trying to save to Supabase now");
+    saveLocal(next);
+
     const { data, error: insertError } = await supabase
       .from("entries")
       .insert({
@@ -207,7 +224,7 @@ function App(){
         topic: memory.topic,
         author: memory.author,
         location: memory.location,
-        photos: memory.photos
+        photos: memory.photos,
       })
       .select();
 
@@ -220,7 +237,7 @@ function App(){
 
     setSelected(memory);
     preloadSpeech(memory.entry, memory.id);
-    setText('');
+    setText("");
     setPhotos([]);
     setBusy(false);
   }
@@ -235,212 +252,282 @@ function App(){
   }
 
   function toggleFavourite(id) {
-    const next = memories.map(m => m.id === id ? { ...m, favourite: !m.favourite } : m);
+    const next = memories.map((m) =>
+      m.id === id ? { ...m, favourite: !m.favourite } : m
+    );
+
     saveLocal(next);
-    setSelected(next.find(m => m.id === id));
+    setSelected(next.find((m) => m.id === id));
+  }
+
+  function deleteMemory(id) {
+    const next = memories.filter((m) => m.id !== id);
+    saveLocal(next);
+    setSelected(null);
   }
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
+
     if (!q) return memories;
-    return memories.filter(m =>
-      [m.title, m.entry, m.raw, m.mood, m.topic, m.date].join(' ').toLowerCase().includes(q)
+
+    return memories.filter((m) =>
+      [m.title, m.entry, m.raw, m.mood, m.topic, m.date]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
     );
   }, [query, memories]);
 
-  if (locked) return <div className="sky">
-    <div className="moon"></div>
-    <div className="loginCard">
-      <h1>🦋 Echo</h1>
-      <p>Every memory becomes a little light.</p>
-      <input value={pass} onChange={e => setPass(e.target.value)} placeholder="Passcode" />
-      <button onClick={() => pass === '1234' && setLocked(false)}>Unlock ✨</button>
-      <small>Demo passcode: 1234</small>
-    </div>
-  </div>;
-
-  return <div className="app">
-    <div className="skyBg">
-      <div className="moon"></div>
-      <div className="cloud c1"></div>
-      <div className="cloud c2"></div>
-      <div className="shootingStar"></div>
-
-      {filtered.map((m, i) => {
-        const spot = STAR_SPOTS[i % STAR_SPOTS.length];
-
-        return (
-          <button
-            key={m.id}
-            className={m.favourite ? 'star favourite' : 'star'}
-            style={{
-              left: `${spot.x}%`,
-              top: `${spot.y}%`
-            }}
-            title={`${m.title} - ${m.date}`}
-            onClick={() => {
-              setSelected(m);
-              preloadSpeech(m.entry, m.id);
-            }}
-          ></button>
-        );
-      })}
-    </div>
-    <main className="panel">
-      <h1>🌌 Echo</h1>
-      <p className="sub">Talk naturally. Echo turns the mess into a memory.</p>
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold' }}>
-          Whose memory is this?
-        </label>
-
-        <select
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '12px',
-            borderRadius: '12px',
-            fontSize: '16px'
-          }}
-        >
-          <option>Brendan</option>
-          <option>Linley</option>
-          <option>Aubrey</option>
-        </select>
-        <input
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          placeholder="Location"
-          style={{
-            width: '100%',
-            marginTop: '10px',
-            padding: '12px',
-            borderRadius: '12px',
-            fontSize: '16px'
-          }}
-        />
+  if (locked) {
+    return (
+      <div className="sky">
+        <div className="moon"></div>
+        <div className="loginCard">
+          <h1>🦋 Echo</h1>
+          <p>Every memory becomes a little light.</p>
+          <input
+            value={pass}
+            onChange={(e) => setPass(e.target.value)}
+            placeholder="Passcode"
+          />
+          <button onClick={() => pass === "1234" && setLocked(false)}>
+            Unlock ✨
+          </button>
+          <small>Demo passcode: 1234</small>
+        </div>
       </div>
-      <div className="actions">
-        {!listening
-          ? <button onClick={startTalk}>🎙️ Start talking</button>
-          : <button onClick={stopTalk} className="stop">🛑 Stop listening</button>}
-        <button onClick={createMemory} disabled={busy}>{busy ? '✨ AI is writing...' : 'Save as star ✨'}</button>
-        <button
-          onClick={() => document.getElementById("photoPicker").click()}
-          style={{
-            width: "100%",
-            marginTop: "10px"
-          }}
-        >
-          📷 Add Photos {photos.length ? `(${photos.length})` : ""}
-        </button>
+    );
+  }
 
-        <input
-          id="photoPicker"
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={addPhotos}
-          style={{ display: "none" }}
-        />{photos.length > 0 && (
-          <div
+  return (
+    <div className="app">
+      <div className="skyBg">
+        <div className="moon"></div>
+        <div className="cloud c1"></div>
+        <div className="cloud c2"></div>
+        <div className="shootingStar"></div>
+
+        {filtered.map((m, i) => {
+          const spot = STAR_SPOTS[i % STAR_SPOTS.length];
+
+          return (
+            <button
+              key={m.id}
+              className={m.favourite ? "star favourite" : "star"}
+              style={{
+                left: `${spot.x}%`,
+                top: `${spot.y}%`,
+              }}
+              title={`${m.title} - ${m.date}`}
+              onPointerUp={() => {
+  setSelected(m);
+  preloadSpeech(m.entry, m.id);
+}}
+            ></button>
+          );
+        })}
+      </div>
+
+      <main className="panel">
+        <h1>🌌 Echo</h1>
+        <p className="sub">Talk naturally. Echo turns the mess into a memory.</p>
+
+        <div style={{ marginBottom: "15px" }}>
+          <label
             style={{
-              display: "flex",
-              gap: "8px",
-              marginTop: "10px",
-              overflowX: "auto",
-              paddingBottom: "6px"
+              display: "block",
+              marginBottom: "6px",
+              fontWeight: "bold",
             }}
           >
-            {photos.map((photo, i) => (
-              <img
-                key={i}
-                src={photo}
-                alt=""
-                style={{
-                  width: "80px",
-                  height: "80px",
-                  objectFit: "cover",
-                  borderRadius: "10px",
-                  border: "2px solid rgba(255,255,255,0.2)"
-                }}
-              />
-            ))}
-          </div>
-        )}
+            Whose memory is this?
+          </label>
 
-
-      </div>
-
-      <textarea value={text} onChange={e => setText(e.target.value)} placeholder="Write or speak your thoughts..." />
-
-      <input className="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search your memory sky..." />
-      <div style={{ marginTop: "12px", maxHeight: "180px", overflowY: "auto" }}>
-        {filtered.map(m => (
-          <button
-            key={m.id}
-            onClick={() => {
-              setSelected(m);
-              preloadSpeech(m.entry, m.id);
-            }}
+          <select
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
             style={{
               width: "100%",
-              textAlign: "left",
-              marginBottom: "8px",
-              padding: "10px",
-              borderRadius: "12px"
+              padding: "12px",
+              borderRadius: "12px",
+              fontSize: "16px",
             }}
           >
-            <strong>{m.title}</strong><br />
-            <small>{m.date} · {m.mood} · {m.topic}</small>
-          </button>
-        ))}
-      </div>
-      <p className="count">{memories.length} memories saved</p>
-    </main>
+            <option>Brendan</option>
+            <option>Linley</option>
+            <option>Aubrey</option>
+          </select>
 
-    {selected && <aside className="memoryCard">
-      <button className="close" onClick={() => setSelected(null)}>×</button>
-      <p className="label">Selected Memory</p>
-      <h2>✨ {selected.title}</h2>
-      <small>{selected.date} · {selected.mood} · {selected.topic}</small>
-      <p>{selected.entry}</p>
-      {selected.photos?.length > 0 && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "8px",
-          marginTop: "12px"
-        }}>
-          {selected.photos.map((photo, i) => (
-            <img
-              key={i}
-              src={photo}
-              alt=""
+          <input
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Location"
+            style={{
+              width: "100%",
+              marginTop: "10px",
+              padding: "12px",
+              borderRadius: "12px",
+              fontSize: "16px",
+            }}
+          />
+        </div>
+
+        <div className="actions">
+          {!listening ? (
+            <button onClick={startTalk}>🎙️ Start talking</button>
+          ) : (
+            <button onClick={stopTalk} className="stop">
+              🛑 Stop listening
+            </button>
+          )}
+
+          <button onClick={createMemory} disabled={busy}>
+            {busy ? "✨ AI is writing..." : "Save as star ✨"}
+          </button>
+
+          <button
+            onClick={() => document.getElementById("photoPicker").click()}
+            style={{ width: "100%", marginTop: "10px" }}
+          >
+            📷 Add Photos {photos.length ? `(${photos.length})` : ""}
+          </button>
+
+          <input
+            id="photoPicker"
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={addPhotos}
+            style={{ display: "none" }}
+          />
+
+          {photos.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                marginTop: "10px",
+                overflowX: "auto",
+                paddingBottom: "6px",
+              }}
+            >
+              {photos.map((photo, i) => (
+                <img
+                  key={i}
+                  src={photo}
+                  alt=""
+                  style={{
+                    width: "80px",
+                    height: "80px",
+                    objectFit: "cover",
+                    borderRadius: "10px",
+                    border: "2px solid rgba(255,255,255,0.2)",
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Write or speak your thoughts..."
+        />
+
+        <input
+          className="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search your memory sky..."
+        />
+
+        <div style={{ marginTop: "12px", maxHeight: "180px", overflowY: "auto" }}>
+          {filtered.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => {
+                setSelected(m);
+                preloadSpeech(m.entry, m.id);
+              }}
               style={{
                 width: "100%",
-                height: "90px",
-                objectFit: "cover",
-                borderRadius: "10px"
+                textAlign: "left",
+                marginBottom: "8px",
+                padding: "10px",
+                borderRadius: "12px",
               }}
-            />
+            >
+              <strong>{m.title}</strong>
+              <br />
+              <small>
+                {m.date} · {m.mood} · {m.topic}
+              </small>
+            </button>
           ))}
         </div>
+
+        <p className="count">{memories.length} memories saved</p>
+      </main>
+
+      {selected && (
+        <aside className="memoryCard">
+          <button className="close" onClick={() => setSelected(null)}>
+            ×
+          </button>
+
+          <p className="label">Selected Memory</p>
+          <h2>✨ {selected.title}</h2>
+          <small>
+            {selected.date} · {selected.mood} · {selected.topic}
+          </small>
+
+          <p>{selected.entry}</p>
+
+          {selected.photos?.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: "8px",
+                marginTop: "12px",
+              }}
+            >
+              {selected.photos.map((photo, i) => (
+                <img
+                  key={i}
+                  src={photo}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    height: "90px",
+                    objectFit: "cover",
+                    borderRadius: "10px",
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          <details>
+            <summary>Original words</summary>
+            <p>{selected.raw}</p>
+          </details>
+
+          <div className="memoryActions">
+            <button onClick={() => readMemory(selected)}>🔊 Read it</button>
+            <button onClick={() => toggleFavourite(selected.id)}>
+              ❤️ {selected.favourite ? "Unfavourite" : "Favourite"}
+            </button>
+            <button className="delete" onClick={() => deleteMemory(selected.id)}>
+              Delete
+            </button>
+          </div>
+        </aside>
       )}
+    </div>
+  );
+}
 
-      <details>
-        <summary>Original words</summary>
-        <p>{selected.raw}</p>
-      </details>
-
-      <div className="memoryActions">
-        <button onClick={() => readMemory(selected)}>🔊 Read it</button>
-        <button onClick={() => toggleFavourite(selected.id)}>❤️ {selected.favourite ? 'Unfavourite' : 'Favourite'}</button>
-        <button className="delete" onClick={() => deleteMemory(selected.id)}>Delete</button>
-      </div>
-    </aside>}
-  </div>;
-
-
-  createRoot(document.getElementById('root')).render(<App />);
+createRoot(document.getElementById("root")).render(<App />);
