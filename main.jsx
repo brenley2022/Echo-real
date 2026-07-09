@@ -236,14 +236,13 @@ setPhotos([]);
 setBusy(false);
   }
 
-  async function readMemory(m){
+  async function readMemory(m))
   try{
     await speak(m.entry, m.id);
   }catch(err){
     console.error(err);
     alert("Could not read memory.");
   }
-}
 
   function toggleFavourite(id){
     const next=memories.map(m=>m.id===id?{...m,favourite:!m.favourite}:m);
