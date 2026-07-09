@@ -61,18 +61,6 @@ function App(){
     () => {}
   );
 }, []);
-  <input
-  value={location}
-  onChange={(e)=>setLocation(e.target.value)}
-  placeholder="Location"
-  style={{
-    width:'100%',
-    marginTop:'10px',
-    padding:'12px',
-    borderRadius:'12px',
-    fontSize:'16px'
-  }}
-/>
   const recRef=useRef(null);
   const keepListening=useRef(false);
 
@@ -228,7 +216,7 @@ body:{
                                              alert(JSON.stringify(insertError));
                                                console.error(insertError);
                                                } 
-                                            }
+                                            
    setSelected(memory);
 preloadSpeech(memory.entry, memory.id);
 setText('');
