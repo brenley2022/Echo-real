@@ -243,7 +243,6 @@ setBusy(false);
     console.error(err);
     alert("Could not read memory.");
   }
-}
 
   function toggleFavourite(id){
     const next=memories.map(m=>m.id===id?{...m,favourite:!m.favourite}:m);
