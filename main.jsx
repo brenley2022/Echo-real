@@ -320,7 +320,12 @@ function App() {
                 top: `${spot.y}%`,
               }}
               title={`${m.title} - ${m.date}`}
-              onPointerUp={() => {
+onClick={() => {
+  setSelected(m);
+  preloadSpeech(m.entry, m.id);
+}}
+onTouchEnd={(e) => {
+  e.preventDefault();
   setSelected(m);
   preloadSpeech(m.entry, m.id);
 }}
