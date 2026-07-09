@@ -207,6 +207,7 @@ body:{
 };
 
     const next=[memory,...memories];
+    alert("Trying to save to Supabase now");
    const { data, error: insertError } = await supabase
      .from("entries")
        .insert({
