@@ -236,7 +236,7 @@ setPhotos([]);
 setBusy(false);
   }
 
-  async function readMemory(m){}
+  async function readMemory(m){
   try{
     await speak(m.entry, m.id);
   }catch(err){
