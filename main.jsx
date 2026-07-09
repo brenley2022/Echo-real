@@ -245,8 +245,6 @@ async function readMemory(m){
   }
 }
  
-function toggleFavourite(id){}
-
   function toggleFavourite(id){
     const next=memories.map(m=>m.id===id?{...m,favourite:!m.favourite}:m);
     saveLocal(next);
